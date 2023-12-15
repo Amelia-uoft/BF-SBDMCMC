@@ -1,3 +1,4 @@
+
 BF.weight=function(m.index,X.raw,y,a0,weight){
   
   X=X.raw[,m.index]
@@ -13,13 +14,28 @@ BF.weight=function(m.index,X.raw,y,a0,weight){
   MLE.fit = summary(glm(as.numeric(pheno) ~ .-1,Data.prior,family=binomial))
   beta.hat = MLE.fit$coefficients[,1]
   eta.prior =  X %*% beta.hat
-  V.vec.prior=rep(NA,length(eta.prior))
-  for(vv in 1:length(eta.prior)){
-    V.vec.prior[vv] = exp(eta.prior[vv])/((1+exp(eta.prior[vv]))^2)
+  #V.vec.prior=rep(NA,length(eta.prior))
+  #for(vv in 1:length(eta.prior)){
+  #  V.vec.prior[vv] = exp(eta.prior[vv])/((1+exp(eta.prior[vv]))^2)
+  #}
+  #v = diag(V.vec.prior)
+  #use sapply rather than for loop
+  V1.fun = function(eta.val){
+     VV=exp(eta.val)/((1+exp(eta.val))^2)
+     return(VV)
   }
-  v = diag(V.vec.prior)
+  V.vec.prior = sapply(eta.prior,V1.fun)
   
-  T.hat = t(X) %*% v %*% X
+  
+ # T.hat = t(X) %*% v %*% X
+ 
+  #compute covariance matrix T.hat in an efficient way
+  V2.fun = function(x.vec,w){
+        x.vec.new = as.matrix(x.vec,nrow=length(x.vec),ncol=1)
+        return(x.vec.new %*% w %*% t(x.vec.new))
+  }
+  listofmatrix.prior = mapply(V2.fun,as.list(data.frame(t(X))),V.vec.prior,SIMPLIFY=F)
+  T.hat=Reduce('+',listofmatrix.prior)
   beta.var.prior = a0^(-1)*solve(T.hat)
   
   # posterior
@@ -31,13 +47,19 @@ BF.weight=function(m.index,X.raw,y,a0,weight){
   MLE.fit.pos = summary(glm(as.numeric(pheno.pos) ~ .-1,Data.pos,family=binomial))
   beta.hat.pos = MLE.fit.pos$coefficients[,1]
   eta.pos = X %*% beta.hat.pos
-  V.vec.pos=rep(NA,length(eta.pos))
-  for(vv in 1:length(eta.pos)){
-    V.vec.pos[vv] = exp(eta.pos[vv])/((1+exp(eta.pos[vv]))^2)
-  }
-  v.pos = diag(V.vec.pos)
+  #V.vec.pos=rep(NA,length(eta.pos))
+  #for(vv in 1:length(eta.pos)){
+  # V.vec.pos[vv] = exp(eta.pos[vv])/((1+exp(eta.pos[vv]))^2)
+  #}
+  #v.pos = diag(V.vec.pos)
+   V.vec.pos = sapply(eta.pos,V1.fun)
+   
+   listofmatrix.pos = mapply(V2.fun,as.list(data.frame(t(X))),V.vec.pos,SIMPLIFY = F)
   
-  T.hat.pos = t(X) %*% v.pos %*% X
+  T.hat.pos = Reduce('+',listofmatrix.pos)
+
+  
+  #T.hat.pos = t(X) %*% v.pos %*% X
   beta.var.pos = (a0+1)^(-1)*solve(T.hat.pos)
   
   y0 = matrix(y0,nrow=n,ncol=1)
