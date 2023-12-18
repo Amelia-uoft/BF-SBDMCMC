@@ -1,4 +1,4 @@
-
+#replace for loop with sapply function and improve the computation of covariance matrix
 BF.weight=function(m.index,X.raw,y,a0,weight){
   
   X=X.raw[,m.index]
